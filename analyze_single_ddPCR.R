@@ -1,20 +1,29 @@
+# analyze_single_ddPCR.R for analysis of Allele-specific Editing using droplet digital PCR
+# (c) 2016 Michael Olvera
+# Trial scripts
+
 annotate_clusters_for_ASE <- function(cluster_centers){
   cluster_centers_temp = cluster_centers
   cluster_list = vector(mode='integer')
   
   cluster_list["FAM ++"] = cluster_centers_temp[which(cluster_centers_temp$Ch1.Amplitude == max(cluster_centers_temp$Ch1.Amplitude)),3]
   cluster_centers_temp = cluster_centers_temp[which(cluster_centers_temp$Cluster != cluster_list["FAM ++"]),]
-  cluster_centers_temp$a = cluster_centers_temp$Ch1.Amplitude + cluster_centers_temp$Ch2.Amplitude
   
-  cluster_list["FAM+/VIC+"] = cluster_centers_temp[which(cluster_centers_temp$a == max(cluster_centers_temp$a)),3]
-  cluster_centers_temp = cluster_centers_temp[which(cluster_centers_temp$Cluster != cluster_list["FAM+/VIC+"]),]
+  cluster_list["VIC +"] = cluster_centers_temp[which(cluster_centers_temp$Ch1.Amplitude == min(cluster_centers_temp$Ch1.Amplitude)),3]
+  cluster_centers_temp = cluster_centers_temp[which(cluster_centers_temp$Cluster != cluster_list["VIC +"]),]
   
-  cluster_list["FAM +"] = cluster_centers_temp[which(cluster_centers_temp$Ch1.Amplitude == max(cluster_centers_temp$Ch1.Amplitude)),3]
+  cluster_list["FAM +"] = cluster_centers_temp[which(cluster_centers_temp$Ch2.Amplitude == min(cluster_centers_temp$Ch2.Amplitude)),3]
   cluster_centers_temp = cluster_centers_temp[which(cluster_centers_temp$Cluster != cluster_list["FAM +"]),]
   
-  cluster_list["VIC +"] = cluster_centers_temp[1,3]
-  cluster_centers_ID = vector(mode='character', length = nrow(cluster_centers))
+  cluster_list["FAM+/VIC+"] = cluster_centers_temp[which(cluster_centers_temp$Ch1.Amplitude == min(cluster_centers_temp$Ch1.Amplitude)),3]
+  cluster_centers_temp = cluster_centers_temp[which(cluster_centers_temp$Cluster != cluster_list["FAM+/VIC+"]),]
   
+  if(nrow(cluster_centers_temp) != 0){
+    for( i in nrow(cluster_centers_temp)){
+      cluster_list[paste("Unknown", i)] = cluster_centers_temp[i,3]
+    }
+  }
+  cluster_centers_ID = vector(mode='character', length = nrow(cluster_centers))
   for(row in 1:length(cluster_centers_ID)){
     cluster_centers_ID[row] = names(cluster_list)[which(cluster_list == cluster_centers[row,3])]
   }
@@ -42,7 +51,7 @@ point_distance <- function(p1,p2,q1,q2){
 }
 
 file = './data/2016.11.29/2016.11.29 Angela_C01_Amplitude.csv'
-k = 4
+k = 6
 
 
 require(ggplot2)
@@ -65,17 +74,16 @@ centers$Cluster <- c(1:k)
 centers = annotate_clusters_for_ASE(centers)
 dat = annotate_dataset(centers, dat)
 
-dat_dist = vector(mode='numeric', length = nrow(dat))
-for
-for(row in 1:nrow(dat)){
-  dat_dist[row] = point_distance(dat[row,1],dat[row,2],dat[row,5],dat[row,6])
-}
-dat$distance = dat_dist
-for(row in 1:nrow(dat)){
-  if(dat$distance[row] >= quantile(dat$distance, .95)){
-    dat$ID[row] = 'Noise'
-  }
-}
+# dat_dist = vector(mode='numeric', length = nrow(dat))
+# for(row in 1:nrow(dat)){
+#   dat_dist[row] = point_distance(dat[row,1],dat[row,2],dat[row,5],dat[row,6])
+# }
+# dat$distance = dat_dist
+# for(row in 1:nrow(dat)){
+#   if(dat$distance[row] >= quantile(dat$distance, .95)){
+#     dat$ID[row] = 'Noise'
+#   }
+# }
 
 ggplot() +
   geom_point(data = dat,aes(Ch2.Amplitude,Ch1.Amplitude, color = ID), alpha = 0.4) +
