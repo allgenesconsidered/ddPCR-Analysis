@@ -21,7 +21,7 @@
 #'     * the data is then annotated (done only for current experiment).
 #'     
 #' Imports come from the external funtion \code{read_ddpcr_data}.
-parseFiles <- function(path, remove_empties = T, recluster = T, k){
+parse_files_from_path <- function(path, remove_empties = T, recluster = T, k){
   files = list.files(path, pattern = '.csv', full.names = F, recursive = F)
   full_plate = data.frame()
   for (file in files) {
@@ -35,8 +35,23 @@ parseFiles <- function(path, remove_empties = T, recluster = T, k){
   return(full_plate)
 }
 
+parse_files_from_list <- function(list_of_paths, remove_empties = T, recluster = T, k, 
+                                  fileNames){
+  full_plate = data.frame()
+  for (i in 1:length(list_of_paths)) {
+    importedFile = parseFileHelper(path = "", list_of_paths[i], remove_empties, recluster, k,
+                                   fileName = fileNames[i])
+    if(nrow(full_plate)==0){
+      full_plate = importedFile
+    } else { full_plate = rbind(full_plate,importedFile) }
+  }
+  
+  cat(paste(length(list_of_paths), 'files merged together.\n'))
+  return(full_plate)
+}
+
 #' Helper funciton for parseFiles. Should not be used by itself.
-parseFileHelper <- function(path, file, rmv_emp, recluster, k){
+parseFileHelper <- function(path, file, rmv_emp, recluster, k, fileName = file){
   importedFile = read.csv(paste(path,file, sep = ""), stringsAsFactors = F)
   if(rmv_emp){ # Revome empty droplets
     importedFile = importedFile[!importedFile$Cluster == 1,]
@@ -51,7 +66,7 @@ parseFileHelper <- function(path, file, rmv_emp, recluster, k){
     importedFile = annotate_dataset(centers, as.data.frame(importedFile_and_centers[1]))
   }
   
-  importedFile$Well <- findWellnumber(file)
+  importedFile$Well <- findWellnumber(fileName)
   return(importedFile)
 }
 
@@ -74,7 +89,7 @@ findWellnumber <- function(file){
 #' @parap k The numer of clusters to find.
 #' @return A list containing the reclustered dataset
 recluster <- function(dataset, k){
-  reclustered = kmeans(dataset[,c(1,2)], k, nstart = 100)
+  reclustered = kmeans(dataset[,c(1,2)], k, nstart = 50)
   dataset$Cluster = reclustered$cluster
   
   centers <- as.data.frame(reclustered$centers)
@@ -147,7 +162,7 @@ processPlatemap <- function(platemap_file){
 }
 
 
-plotFacet <- function(full_plate, platemap, path){
+plotFacet <- function(full_plate, platemap = NULL, path = ""){
   # Plot the data as a facet plot together, seperating the plots by row letter
   # and column number as displayed on the plate.
   full_plate <- seperateWellNumbers(full_plate)
@@ -155,13 +170,15 @@ plotFacet <- function(full_plate, platemap, path){
   require(ggplot2) 
   full_plate$Cluster <- as.factor(full_plate$Cluster)
   g = ggplot(full_plate, aes(x=Ch2.Amplitude, y=Ch1.Amplitude)) + 
-    geom_point(shape=1, size=1, aes(color = ID)) +
-
+    geom_point(shape=1, size=1, aes(color = ID)) + 
     facet_grid(Letter ~ Number, switch = 'y') +
-    geom_text(data = platemap, aes(x = 0.5, y =0.9, label = Condition, group = NULL)) +
     scale_x_continuous("VIC Intensity (AU)") +
     scale_y_continuous("FAM Intensity (AU)") +
-    ggtitle(path) +
+    ggtitle(path)
+  if(!is.null(platemap)){
+    g =  g + geom_text(data = platemap, aes(x = 0.5, y =0.9, label = Condition, group = NULL))
+  }
+  g = g +
     theme(axis.ticks = element_blank(), axis.text.x = element_blank(),
           axis.text.y = element_blank(), strip.text.y = element_text(angle = 180))
   print(g)
@@ -195,7 +212,7 @@ cleanPlate <- function(plate, platemap){
 read_ddpcr_data <- function(path_to_data_folder, path_to_platemap, output_dir = '~/Desktop/',
                             remove_empties = T, recluster = T,k = 4, graph_data = T, output = F){
   
-  testPlate <- parseFiles(path_to_data_folder, k = k)
+  testPlate <- parse_files_from_path(path_to_data_folder, k = k)
   platemap <- processPlatemap(path_to_platemap)
   outputPlate <- cleanPlate(testPlate, platemap)
   if(graph_data){
@@ -210,5 +227,5 @@ read_ddpcr_data <- function(path_to_data_folder, path_to_platemap, output_dir = 
 }
 
 
-read_ddpcr_data('./data/2016.11.30/','./data/2016_11_30_platemap.csv', k=5)
+#read_ddpcr_data('./data/2016.11.30/','./data/2016_11_30_platemap.csv', k=5)
 
