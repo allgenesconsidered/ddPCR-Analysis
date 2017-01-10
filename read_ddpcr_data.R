@@ -30,7 +30,6 @@ parse_files_from_path <- function(path, remove_empties = T, recluster = T, k){
       full_plate = importedFile
     } else { full_plate = rbind(full_plate,importedFile) }
   }
-  
   cat(paste(length(files), 'files merged together.\n'))
   return(full_plate)
 }
@@ -89,7 +88,7 @@ findWellnumber <- function(file){
 #' @parap k The numer of clusters to find.
 #' @return A list containing the reclustered dataset
 recluster <- function(dataset, k){
-  reclustered = kmeans(dataset[,c(1,2)], k, nstart = 50)
+  reclustered = kmeans(dataset[,c(1,2)], k, nstart = 100)
   dataset$Cluster = reclustered$cluster
   
   centers <- as.data.frame(reclustered$centers)
@@ -112,6 +111,12 @@ maximumNormalize <- function(column){
 
 ### Automatic Annotation ###
 
+#' Function specific for Angela's ddPCR experiments. Annotates each clused based on where you
+#' would predic them to fall relative to eachother. For instance, it is assumed that the 
+#' 'FAM++' poplation will be the population with the largest Ch1 amplitude. All other groups can
+#' be extrapolated based on these properties.
+#' 
+#' The funciton relies on only the cluster centers returned from the kmeans function. Th
 annotate_clusters_for_ASE <- function(cluster_centers){
   cluster_centers_temp = cluster_centers
   cluster_list = vector(mode='integer')
@@ -158,7 +163,7 @@ processPlatemap <- function(platemap_file){
   # # of replicates and experimental condition.
   platemap <- read.csv(platemap_file, stringsAsFactors = F)
   platemap <- seperateWellNumbers(platemap)
-   return(platemap)
+  return(platemap)
 }
 
 
@@ -169,7 +174,7 @@ plotFacet <- function(full_plate, platemap = NULL, path = ""){
   
   require(ggplot2) 
   full_plate$Cluster <- as.factor(full_plate$Cluster)
-  g = ggplot(full_plate, aes(x=Ch2.Amplitude, y=Ch1.Amplitude)) + 
+  g = ggplot(full_plate, aes(x=Ch2.Amplitude, y=Ch1.Amplitude), environment = environment()) + 
     geom_point(shape=1, size=1, aes(color = ID)) + 
     facet_grid(Letter ~ Number, switch = 'y') +
     scale_x_continuous("VIC Intensity (AU)") +
@@ -179,9 +184,10 @@ plotFacet <- function(full_plate, platemap = NULL, path = ""){
     g =  g + geom_text(data = platemap, aes(x = 0.5, y =0.9, label = Condition, group = NULL))
   }
   g = g +
+    theme_bw() +
     theme(axis.ticks = element_blank(), axis.text.x = element_blank(),
           axis.text.y = element_blank(), strip.text.y = element_text(angle = 180))
-  print(g)
+  return(g)
 }
 
 seperateWellNumbers <- function(dataset){
@@ -228,4 +234,5 @@ read_ddpcr_data <- function(path_to_data_folder, path_to_platemap, output_dir = 
 
 
 #read_ddpcr_data('./data/2016.11.30/','./data/2016_11_30_platemap.csv', k=5)
+
 
